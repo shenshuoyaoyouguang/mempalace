@@ -163,8 +163,13 @@ def _clean(text: str) -> str:
 
     Replace lone surrogates with U+FFFD (REPLACEMENT CHARACTER) so
     the string is legal UTF-8 while preserving as much content as
-    possible.  Paired surrogates (valid UTF-16) are left alone —
-    the Python interpreter already decoded them correctly.
+    possible.  Note: ``encode('utf-8', 'surrogatepass')`` also
+    treats suspected paired surrogates (individual ``\ud800``–``\udfff``
+    code points) as lone surrogates, replacing them with U+FFFD.
+    This is correct — a Python ``str`` containing such code points
+    is already corrupt from the perspective of the UTF-8 channel.
+    Properly decoded characters (e.g. a real emoji) contain no
+    surrogates and pass through unchanged.
     """
     return text.encode("utf-8", "surrogatepass").decode("utf-8", "replace")
 
@@ -911,6 +916,7 @@ def tool_search(
     dist = (1.0 - min_similarity) if min_similarity is not None else max_distance
     # Mitigate system prompt contamination (Issue #333)
     sanitized = sanitize_query(query)
+    sanitized["clean_query"] = _clean(sanitized["clean_query"])
     # Ensure the vector-disabled probe has been run via the safe
     # sqlite/pickle path before we touch chromadb. Calling _get_client()
     # here would defeat the fallback — it constructs a PersistentClient
@@ -981,6 +987,7 @@ def tool_check_duplicate(content: str, threshold: float = 0.9):
     if not col:
         return _no_palace()
     try:
+        content = _clean(content)
         results = col.query(
             query_texts=[content],
             n_results=5,
@@ -1138,6 +1145,9 @@ def tool_add_drawer(
         room = sanitize_name(room, "room")
         content = sanitize_content(content)
         content = _clean(content)
+        if source_file:
+            source_file = _clean(source_file)
+        added_by = _clean(added_by)
     except ValueError as e:
         return {"success": False, "error": str(e)}
 
@@ -1146,7 +1156,7 @@ def tool_add_drawer(
         return _no_palace()
 
     drawer_id = (
-        f"drawer_{wing}_{room}_{hashlib.sha256((wing + room + content).encode('utf-8', 'surrogatepass')).hexdigest()[:24]}"
+        f"drawer_{wing}_{room}_{hashlib.sha256((wing + room + content).encode()).hexdigest()[:24]}"
     )
 
     _wal_log(
@@ -1435,6 +1445,7 @@ def tool_update_drawer(drawer_id: str, content: str = None, wing: str = None, ro
         if content is not None:
             try:
                 new_doc = sanitize_content(content)
+                new_doc = _clean(new_doc)
             except ValueError as e:
                 return {"success": False, "error": str(e)}
 
@@ -1646,7 +1657,7 @@ def tool_diary_write(agent_name: str, entry: str, topic: str = "general", wing: 
     now = datetime.now()
     entry_id = (
         f"diary_{wing}_{now.strftime('%Y%m%d_%H%M%S%f')}_"
-        f"{hashlib.sha256(entry.encode('utf-8', 'surrogatepass')).hexdigest()[:12]}"
+        f"{hashlib.sha256(entry.encode()).hexdigest()[:12]}"
     )
 
     _wal_log(
