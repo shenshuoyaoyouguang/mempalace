@@ -4,6 +4,8 @@
 Hardware: RTX 3080 Laptop 8 GB · Ollama 0.23.3
 Embed model: `nomic-embed-text` · Dataset: n=20 (calibration), n=40 (memory/entity), n=101 (room)
 
+> **Methodology note:** this run predates the `--num-ctx 4096` default. Each model used its own Modelfile context window (32k for the Gemma4 variants, larger for qwen3), which means VRAM and latency numbers across families aren't strictly apples-to-apples. Accuracy is unaffected — the prompts are well under any model's window — but expect e2e and VRAM to drop in subsequent runs with the new default.
+
 ---
 
 ## Models

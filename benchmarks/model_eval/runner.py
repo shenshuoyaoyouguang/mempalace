@@ -449,10 +449,12 @@ def main():
                         help=f"Embedding model for semantic-similarity scoring "
                              f"(memory_extraction, room_classification:open). "
                              f"Default: {_EMBED_MODEL}.")
-    parser.add_argument("--num-ctx", type=int, default=None,
-                        help="Override Ollama context window per request (sent as options.num_ctx). "
-                             "When set, overrides the model's Modelfile default — useful for "
-                             "apples-to-apples comparison across candidates with different defaults.")
+    parser.add_argument("--num-ctx", type=int, default=4096,
+                        help="Ollama context window per request (sent as options.num_ctx). "
+                             "Defaults to 4096 so every candidate runs at the same window regardless "
+                             "of its Modelfile default — without this, a 32k-default model pre-allocates "
+                             "KV cache that a 4k-default model doesn't, and accuracy/latency/VRAM stop "
+                             "being comparable. Pass a larger value if a task prompt exceeds 4k tokens.")
     args = parser.parse_args()
 
     if args.task != "room_classification" and args.mode in ("closed", "open"):

@@ -160,10 +160,12 @@ def main():
                              "else http://localhost:11434.")
     parser.add_argument("--embed-model", default=_EMBED_MODEL,
                         help=f"Embedding model for semantic-similarity scoring. Default: {_EMBED_MODEL}.")
-    parser.add_argument("--num-ctx", type=int, default=None,
-                        help="Override Ollama context window per request (sent as options.num_ctx). "
-                             "Forces apples-to-apples comparison across candidates regardless of "
-                             "their Modelfile defaults.")
+    parser.add_argument("--num-ctx", type=int, default=4096,
+                        help="Ollama context window per request (sent as options.num_ctx). "
+                             "Defaults to 4096 so every candidate runs at the same window regardless "
+                             "of its Modelfile default — without this, a 32k-default model pre-allocates "
+                             "KV cache that a 4k-default model doesn't, and accuracy/latency/VRAM stop "
+                             "being comparable. Pass a larger value if a task prompt exceeds 4k tokens.")
     parser.add_argument("--warmup", type=int, default=1)
     parser.add_argument("--n", type=int, default=None, help="Limit each task to first N samples (debug mode)")
     parser.add_argument(
