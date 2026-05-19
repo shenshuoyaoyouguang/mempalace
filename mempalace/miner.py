@@ -1305,19 +1305,15 @@ def _mine_impl(
                 raise
             files_processed = i
             last_file = filepath.name
-            # Chunk-cap accounting fires under dry_run too: dry-run is the
-            # natural way to audit a corpus before a real mine, so silent
-            # chunk-cap drops there would defeat the whole point of #1455.
-            # Bump ``files_skipped`` alongside for the chunk-cap path so the
-            # "Files processed" arithmetic in the summary reflects the
-            # chunk-cap drops in both modes. (Pre-existing OSError /
-            # too-short / re-check skips under dry_run still flow into the
-            # else-branch; that is a separate accounting concern.)
-            if drawers == 0 and skip_reason == "chunk_cap":
-                files_skipped_chunk_cap += 1
+            # All zero-drawer outcomes increment ``files_skipped`` in both
+            # modes so the summary "Files processed" arithmetic and the
+            # residual-skip counter stay honest under ``--dry-run`` too. The
+            # chunk-cap counter is partitioned out for its dedicated
+            # summary line (see #1455 + Gemini review on PR #1554).
+            if drawers == 0:
                 files_skipped += 1
-            elif drawers == 0 and not dry_run:
-                files_skipped += 1
+                if skip_reason == "chunk_cap":
+                    files_skipped_chunk_cap += 1
             else:
                 total_drawers += drawers
                 room_counts[room] += 1
