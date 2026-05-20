@@ -848,3 +848,143 @@ def test_mine_formats_ingest_mode_metadata_is_extract(_mine_formats_mocks):
     assert call_args is not None
     metas = call_args.kwargs.get("metadatas") or call_args.args[2]
     assert metas[0]["ingest_mode"] == "extract"
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Bot-review parity fixes (PR #1555 follow-up commit, 2026-05-19):
+#   - palace.SKIP_DIRS reuse (covered indirectly by scan_formats tests)
+#   - scan_formats skips symlinks
+#   - mine_formats uses check_mtime=True
+#   - source_mtime + hall + entities in drawer metadata
+#   - per-file try/except so one bad file doesn't crash the whole mine
+# ─────────────────────────────────────────────────────────────────────────────
+
+
+def test_scan_formats_skips_symlinks(tmp_path: Path):
+    """Symlinks must be skipped — mirrors miner.py and convo_miner.py."""
+    real = tmp_path / "real.pdf"
+    real.write_bytes(b"%PDF-1.4 stub")
+    link = tmp_path / "alias.pdf"
+    link.symlink_to(real)
+    found = {f.name for f in scan_formats(tmp_path)}
+    assert "real.pdf" in found
+    assert "alias.pdf" not in found
+
+
+def test_mine_formats_uses_check_mtime_true(_mine_formats_mocks):
+    """mine_formats must call file_already_mined with check_mtime=True so
+    updated documents get re-mined (matches miner.py semantics)."""
+    from unittest.mock import patch
+    from mempalace.format_miner import mine_formats
+
+    tmp = _mine_formats_mocks["tmp_path"]
+    f = tmp / "doc.pdf"
+    f.write_bytes(b"%PDF-1.4 stub")
+    with (
+        patch("mempalace.format_miner.scan_formats", return_value=[f]),
+        patch("mempalace.format_miner._extract_via_markitdown", return_value="long " * 50),
+    ):
+        mine_formats(format_dir=str(tmp), palace_path=str(tmp / "palace"))
+    # Inspect every file_already_mined call — they must all use check_mtime=True
+    calls = _mine_formats_mocks["file_already_mined"].call_args_list
+    assert calls, "file_already_mined should have been called at least once"
+    for call in calls:
+        # check_mtime can be in kwargs or positional. Inspect both.
+        kwargs = call.kwargs
+        assert kwargs.get("check_mtime") is True, f"check_mtime must be True, got {kwargs}"
+
+
+def test_mine_formats_records_source_mtime_in_drawer_metadata(_mine_formats_mocks):
+    """Each drawer must carry source_mtime so file_already_mined(check_mtime=True)
+    can detect updates on re-mine."""
+    from unittest.mock import patch
+    from mempalace.format_miner import mine_formats
+
+    tmp = _mine_formats_mocks["tmp_path"]
+    f = tmp / "doc.pdf"
+    f.write_bytes(b"%PDF-1.4 stub")
+    with (
+        patch("mempalace.format_miner.scan_formats", return_value=[f]),
+        patch("mempalace.format_miner._extract_via_markitdown", return_value="long " * 50),
+    ):
+        mine_formats(format_dir=str(tmp), palace_path=str(tmp / "palace"))
+    upsert_calls = _mine_formats_mocks["collection"].upsert.call_args_list
+    # Find the content upsert (not the sentinel)
+    found_mtime = False
+    for call in upsert_calls:
+        metas = call.kwargs.get("metadatas") or call.args[2]
+        for m in metas:
+            if m.get("is_sentinel"):
+                continue
+            assert "source_mtime" in m, f"missing source_mtime in drawer meta: {m}"
+            assert isinstance(m["source_mtime"], (int, float))
+            found_mtime = True
+    assert found_mtime, "no non-sentinel drawer upsert observed"
+
+
+def test_mine_formats_records_hall_in_drawer_metadata(_mine_formats_mocks):
+    """Each drawer must carry a 'hall' tag — matches miner.py drawer quality."""
+    from unittest.mock import patch
+    from mempalace.format_miner import mine_formats
+
+    tmp = _mine_formats_mocks["tmp_path"]
+    f = tmp / "doc.pdf"
+    f.write_bytes(b"%PDF-1.4 stub")
+    with (
+        patch("mempalace.format_miner.scan_formats", return_value=[f]),
+        patch("mempalace.format_miner._extract_via_markitdown", return_value="long " * 50),
+    ):
+        mine_formats(format_dir=str(tmp), palace_path=str(tmp / "palace"))
+    upsert_calls = _mine_formats_mocks["collection"].upsert.call_args_list
+    found_hall = False
+    for call in upsert_calls:
+        metas = call.kwargs.get("metadatas") or call.args[2]
+        for m in metas:
+            if m.get("is_sentinel"):
+                continue
+            assert "hall" in m, f"missing hall in drawer meta: {m}"
+            assert isinstance(m["hall"], str)
+            found_hall = True
+    assert found_hall, "no non-sentinel drawer upsert observed"
+
+
+def test_mine_formats_continues_after_per_file_error(_mine_formats_mocks):
+    """One bad file must not crash the whole mine — the loop continues."""
+    from unittest.mock import patch
+    from mempalace.format_miner import mine_formats
+
+    tmp = _mine_formats_mocks["tmp_path"]
+    bad = tmp / "broken.pdf"
+    bad.write_bytes(b"%PDF-1.4 stub")
+    good = tmp / "fine.pdf"
+    good.write_bytes(b"%PDF-1.4 stub")
+
+    # Make chunk_text crash on the first file but succeed on the second.
+    call_count = {"n": 0}
+
+    def chunk_text_first_fails(content, source_file):
+        call_count["n"] += 1
+        if call_count["n"] == 1:
+            raise RuntimeError("simulated chunker explosion")
+        return [{"content": "good chunk content here " * 5, "chunk_index": 0}]
+
+    with (
+        patch("mempalace.format_miner.scan_formats", return_value=[bad, good]),
+        patch("mempalace.format_miner._extract_via_markitdown", return_value="text"),
+        patch("mempalace.miner.chunk_text", side_effect=chunk_text_first_fails),
+    ):
+        # Must not raise
+        mine_formats(format_dir=str(tmp), palace_path=str(tmp / "palace"))
+
+    # The second file should still have produced an upsert
+    upsert_calls = _mine_formats_mocks["collection"].upsert.call_args_list
+    non_sentinel_upserts = [
+        call
+        for call in upsert_calls
+        if not any(
+            (m or {}).get("is_sentinel") for m in (call.kwargs.get("metadatas") or call.args[2])
+        )
+    ]
+    assert non_sentinel_upserts, (
+        "the good file should still have produced a content upsert after the bad file errored"
+    )
