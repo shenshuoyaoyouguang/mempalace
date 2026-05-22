@@ -7,9 +7,7 @@
 > 2. The **[PyPI package](https://pypi.org/project/mempalace/)**
 > 3. The docs at **[mempalaceofficial.com](https://mempalaceofficial.com)**
 > 
-> **ANY other domain** (including `.tech`, `.net`, or other `.com` variants) is an **impostor** and may distribute **malware**. Do not download executables from untrusted sites.
-
-> malware. Details and timeline: [docs/HISTORY.md](docs/HISTORY.md).
+> **ANY other domain** (including `.tech`, `.net`, or other `.com` variants) is an **impostor** and may distribute **malware**. Do not download executables from untrusted sites. Details and timeline: [docs/HISTORY.md](docs/HISTORY.md).
 
 <div align="center">
 
