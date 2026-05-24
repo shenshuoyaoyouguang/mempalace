@@ -867,13 +867,19 @@ def _extract_entities_for_metadata(content: str) -> str:
         if re.search(r"(?<!\w)" + re.escape(name) + r"(?!\w)", content, re.IGNORECASE):
             matched.add(name)
 
-    from .entity_detector import _get_coca_filter
+    from .entity_detector import _apply_known_systems_prepass, _get_coca_filter
     from .palace import _candidate_entity_words
 
     coca_filter = _get_coca_filter()
     window = content[:_ENTITY_EXTRACT_WINDOW]
-    words = _candidate_entity_words(window)
-    freq: dict = {}
+    # Tier 3 linguistics cleanup — known-systems compound pre-pass. Detects
+    # multi-word product names atomically and masks them from the window so
+    # the single-word extraction below doesn't decompose them into their
+    # constituent tokens (which would then either get COCA-filtered or
+    # appear as wrongly-attributed standalone entities).
+    working_window, compound_counts = _apply_known_systems_prepass(window)
+    words = _candidate_entity_words(working_window)
+    freq: dict = dict(compound_counts)
     for w in words:
         if w in _ENTITY_STOPLIST:
             continue
