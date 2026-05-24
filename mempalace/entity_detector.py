@@ -74,7 +74,7 @@ def _get_coca_filter() -> frozenset[str]:
         raw = json.loads(data_path.read_text(encoding="utf-8"))
         words = raw.get("words", [])
         return frozenset(w.lower() for w in words if isinstance(w, str))
-    except (OSError, json.JSONDecodeError, AttributeError):
+    except (OSError, json.JSONDecodeError, AttributeError, TypeError):
         return frozenset()
 
 
