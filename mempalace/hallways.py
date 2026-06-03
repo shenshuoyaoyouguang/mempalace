@@ -198,16 +198,32 @@ def compute_hallways_for_wing(
 
     min_count = max(1, int(min_count))
 
-    # 1. Query drawers for this wing.
+    # 1. Query drawers for this wing. Paginate the fetch and filter to the
+    #    wing client-side: a single get(where={"wing": wing}) binds one SQL
+    #    variable per matched id and overflows SQLite's
+    #    SQLITE_MAX_VARIABLE_NUMBER (32766) on wings > ~32k drawers (#1619).
+    #    Mirrors the established pagination in miner.status / palace /
+    #    palace_graph.
+    metadatas: list = []
     try:
-        results = col.get(where={"wing": wing}, include=["metadatas"])
+        total = col.count()
+        batch_size = 5000
+        offset = 0
+        while offset < total:
+            batch = col.get(limit=batch_size, offset=offset, include=["metadatas"])
+            batch_metas = (batch or {}).get("metadatas") or []
+            if not batch_metas:
+                break
+            metadatas.extend(
+                m for m in batch_metas if isinstance(m, dict) and m.get("wing") == wing
+            )
+            offset += len(batch_metas)
     except Exception:
         logger.warning(
-            "compute_hallways_for_wing: collection.get failed for %s", wing, exc_info=True
+            "compute_hallways_for_wing: collection fetch failed for %s", wing, exc_info=True
         )
         return []
 
-    metadatas = (results or {}).get("metadatas") or []
     if not metadatas:
         return []
 
