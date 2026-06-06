@@ -2662,7 +2662,13 @@ TOOLS = {
                     "description": "Alias for 'entry' — accepted because add_drawer uses 'content'. Provide either 'entry' or 'content'; 'entry' wins if both are given.",
                 },
             },
-            "required": ["agent_name", "entry"],
+            # agent_name is always required; 'entry' or its alias 'content' must
+            # be present (the server remaps content->entry at dispatch).
+            "required": ["agent_name"],
+            "anyOf": [
+                {"required": ["entry"]},
+                {"required": ["content"]},
+            ],
         },
         "handler": tool_diary_write,
     },
@@ -2876,7 +2882,9 @@ def handle_request(request):
         # 'entry' wins if both are supplied.
         if tool_name == "mempalace_diary_write" and "content" in tool_args:
             content_val = tool_args.pop("content")
-            if not tool_args.get("entry"):
+            # Only fill from the alias when the caller did not supply 'entry' at
+            # all (or passed it as null). An explicit entry — even "" — wins.
+            if "entry" not in tool_args or tool_args["entry"] is None:
                 tool_args["entry"] = content_val
         try:
             result = TOOLS[tool_name]["handler"](**tool_args)

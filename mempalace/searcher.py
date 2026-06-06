@@ -897,7 +897,11 @@ def _query_drawers_with_filter_fallback(drawers_col, dkwargs, query, n_results, 
             include=["documents", "metadatas", "distances"],
         )
         fdocs, fmetas, fdists = [], [], []
-        for doc, meta, dist in zip(raw["documents"][0], raw["metadatas"][0], raw["distances"][0]):
+        for doc, meta, dist in zip(
+            _first_or_empty(raw, "documents"),
+            _first_or_empty(raw, "metadatas"),
+            _first_or_empty(raw, "distances"),
+        ):
             meta = meta or {}
             if wing and meta.get("wing") != wing:
                 continue

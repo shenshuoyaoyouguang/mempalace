@@ -3378,6 +3378,33 @@ class TestParamShapeDiagnostics:
         assert captured.get("entry") == "real"
         assert "content" not in captured
 
+    def test_diary_write_explicit_empty_entry_not_overridden_by_content(self, monkeypatch):
+        """An explicitly supplied (even falsy "") 'entry' wins over 'content' —
+        the alias only fills in when 'entry' is absent or null, not merely falsy.
+        """
+        from mempalace import mcp_server
+
+        captured = {}
+
+        def capture(**kwargs):
+            captured.update(kwargs)
+            return {"success": True}
+
+        monkeypatch.setitem(mcp_server.TOOLS["mempalace_diary_write"], "handler", capture)
+        resp = mcp_server.handle_request(
+            {
+                "method": "tools/call",
+                "id": 7,
+                "params": {
+                    "name": "mempalace_diary_write",
+                    "arguments": {"agent_name": "t", "entry": "", "content": "alias"},
+                },
+            }
+        )
+        assert "error" not in resp
+        assert captured.get("entry") == ""
+        assert "content" not in captured
+
     def test_handler_internal_signature_shape_stays_generic(self, monkeypatch):
         """A TypeError whose function name does not match the dispatched
         handler — e.g. raised by a helper called inside the handler body —
