@@ -482,6 +482,27 @@ def test_pgvector_live_roundtrip_when_enabled(tmp_path):
 
         col.delete(ids=["live-a"])
         assert col.get(ids=["live-a"]).ids == []
+
+        # Reopen the existing table in a fresh backend and write another
+        # same-dimension vector. This exercises table_dimension() against a
+        # live vector(n) column — a regression guard for reading the dimension
+        # off the raw atttypmod (which is not the bare n) and falsely raising
+        # DimensionMismatchError on reopen.
+        backend.close()
+        backend = PgVectorBackend()
+        reopened = backend.get_collection(
+            palace=palace,
+            collection_name="drawers",
+            create=False,
+            options={"dsn": live_url},
+        )
+        reopened.upsert(
+            ids=["live-c"],
+            documents=["third live document"],
+            metadatas=[{"wing": "live", "rank": 3}],
+            embeddings=[[0.5, 0.5]],
+        )
+        assert reopened.count() == 2
     finally:
         try:
             backend.delete_collection(str(tmp_path), "drawers")

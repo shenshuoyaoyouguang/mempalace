@@ -1434,6 +1434,11 @@ class ChromaCollection(BaseCollection):
         tokens = [t for t in _tokenize(query) if len(t) >= 3]
         use_recency_fallback = not tokens
         candidate_ids: list[int] = []
+        # Map internal embeddings.id (rowid, used to join embedding_metadata)
+        # to the public embeddings.embedding_id so returned LexicalHit.id values
+        # round-trip through get(ids=...). The two differ: id is the integer
+        # rowid, embedding_id is the user-facing drawer id.
+        public_ids: dict[int, str] = {}
         try:
             conn = sqlite3.connect(f"file:{db_path}?mode=ro", uri=True)
             conn.row_factory = sqlite3.Row
@@ -1454,7 +1459,7 @@ class ChromaCollection(BaseCollection):
                 try:
                     rows = conn.execute(
                         f"""
-                        SELECT embedding_fulltext_search.rowid
+                        SELECT e.id, e.embedding_id
                         FROM embedding_fulltext_search
                         JOIN embeddings e ON e.id = embedding_fulltext_search.rowid
                         JOIN segments s ON e.segment_id = s.id
@@ -1466,6 +1471,7 @@ class ChromaCollection(BaseCollection):
                         params,
                     ).fetchall()
                     candidate_ids = [int(row[0]) for row in rows]
+                    public_ids.update({int(row[0]): str(row[1]) for row in rows})
                 except sqlite3.Error:
                     logger.debug(
                         "Chroma lexical FTS query failed; using recency fallback", exc_info=True
@@ -1477,7 +1483,7 @@ class ChromaCollection(BaseCollection):
                 try:
                     rows = conn.execute(
                         f"""
-                        SELECT e.id
+                        SELECT e.id, e.embedding_id
                         FROM embeddings e
                         JOIN segments s ON e.segment_id = s.id
                         JOIN collections c ON s.collection = c.id
@@ -1493,7 +1499,7 @@ class ChromaCollection(BaseCollection):
                     )
                     rows = conn.execute(
                         """
-                        SELECT e.id
+                        SELECT e.id, e.embedding_id
                         FROM embeddings e
                         JOIN segments s ON e.segment_id = s.id
                         JOIN collections c ON s.collection = c.id
@@ -1504,6 +1510,7 @@ class ChromaCollection(BaseCollection):
                         (collection_name, max(max_candidates, n_results)),
                     ).fetchall()
                 candidate_ids = [int(row[0]) for row in rows]
+                public_ids.update({int(row[0]): str(row[1]) for row in rows})
 
             if not candidate_ids:
                 return []
@@ -1569,7 +1576,12 @@ class ChromaCollection(BaseCollection):
         docs = [doc for _, doc, _ in ordered]
         scores = _bm25_scores(query, docs)
         hits = [
-            LexicalHit(id=str(emb_id), document=doc, metadata=meta, score=float(score))
+            LexicalHit(
+                id=public_ids.get(emb_id, str(emb_id)),
+                document=doc,
+                metadata=meta,
+                score=float(score),
+            )
             for (emb_id, doc, meta), score in zip(ordered, scores)
             if score > 0
         ]

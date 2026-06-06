@@ -499,18 +499,25 @@ class _PgVectorClient:
         return bool(rows)
 
     def table_dimension(self, table: str) -> Optional[int]:
+        # The raw ``atttypmod`` of a ``vector(n)`` column is NOT the bare
+        # dimension (pgvector encodes it via its own typmod_in), so reading it
+        # directly can be off and produce false DimensionMismatchErrors on
+        # reopen. Round-trip through ``format_type`` instead, which invokes the
+        # type's own typmod_out and yields the canonical ``vector(384)`` text
+        # regardless of the internal encoding or pgvector version.
         try:
             rows = self._execute(
-                "SELECT a.atttypmod FROM pg_attribute a "
+                "SELECT format_type(a.atttypid, a.atttypmod) FROM pg_attribute a "
                 "WHERE a.attrelid = %s::regclass AND a.attname = 'embedding'",
                 [_quote_identifier(table)],
                 fetch=True,
             )
         except BackendError:
             return None
-        if rows and rows[0] and rows[0][0] and int(rows[0][0]) > 0:
-            return int(rows[0][0])
-        return None
+        if not rows or not rows[0] or not rows[0][0]:
+            return None
+        match = re.search(r"\((\d+)\)", str(rows[0][0]))
+        return int(match.group(1)) if match else None
 
     def create_table(self, table: str, dimension: int) -> None:
         self.ensure_extension()

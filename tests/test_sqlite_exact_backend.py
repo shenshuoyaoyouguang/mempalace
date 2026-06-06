@@ -4,6 +4,7 @@ import pytest
 
 from mempalace.backends import (
     BackendMismatchError,
+    CollectionNotInitializedError,
     DimensionMismatchError,
     PalaceRef,
     QueryResult,
@@ -17,6 +18,22 @@ def _collection(tmp_path, name="mempalace_drawers", create=True):
     backend = SQLiteExactBackend()
     palace = PalaceRef(id=str(tmp_path), local_path=str(tmp_path))
     return backend, backend.get_collection(palace=palace, collection_name=name, create=create)
+
+
+def test_sqlite_exact_missing_collection_error_names_collection(tmp_path):
+    """CollectionNotInitializedError must identify the missing collection, not
+    the palace path — consistent with line 287 and the other backends."""
+    backend, _ = _collection(tmp_path, name="mempalace_drawers")
+    palace = PalaceRef(id=str(tmp_path), local_path=str(tmp_path))
+    with pytest.raises(CollectionNotInitializedError) as exc:
+        backend.get_collection(palace=palace, collection_name="does_not_exist", create=False)
+    assert "does_not_exist" in str(exc.value)
+    assert str(tmp_path) not in str(exc.value)
+
+    with pytest.raises(CollectionNotInitializedError) as exc2:
+        backend.delete_collection(str(tmp_path), "also_missing")
+    assert "also_missing" in str(exc2.value)
+    assert str(tmp_path) not in str(exc2.value)
 
 
 def test_registry_exposes_sqlite_exact():

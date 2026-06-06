@@ -836,7 +836,7 @@ class SQLiteExactBackend(BaseBackend):
             ).fetchone()
             if row is None:
                 if not create:
-                    raise CollectionNotInitializedError(palace_path)
+                    raise CollectionNotInitializedError(collection_name)
                 handle.conn.execute(
                     "INSERT INTO collections(name, created_at) VALUES (?, ?)",
                     (collection_name, _utcnow()),
@@ -923,7 +923,7 @@ class SQLiteExactBackend(BaseBackend):
                 (collection_name,),
             ).fetchone()
             if row is None:
-                raise CollectionNotInitializedError(palace_path)
+                raise CollectionNotInitializedError(collection_name)
             collection_id = int(row[0])
             handle.conn.execute("DELETE FROM documents WHERE collection_id = ?", (collection_id,))
             try:
