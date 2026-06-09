@@ -9,6 +9,8 @@ mempal.yaml
 .claude/
 .codex/
 .codex
+.omc/
+.omx/
 
 # Environment
 .env
