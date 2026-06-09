@@ -1,0 +1,19 @@
+{
+  "version": 1,
+  "active": true,
+  "skill": "ralplan",
+  "keyword": "",
+  "phase": "architect_review",
+  "activated_at": "2026-06-09T05:43:24.384Z",
+  "updated_at": "2026-06-09T05:43:24.384Z",
+  "source": "state-operations",
+  "active_skills": [
+    {
+      "skill": "ralplan",
+      "phase": "architect_review",
+      "active": true,
+      "activated_at": "2026-06-09T05:43:24.384Z",
+      "updated_at": "2026-06-09T05:43:24.384Z"
+    }
+  ]
+}

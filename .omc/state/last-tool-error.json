@@ -1,0 +1,7 @@
+{
+  "tool_name": "Bash",
+  "tool_input_preview": "{\"command\":\"cd \\\"D:\\\\xiaoxiao\\\\20026\\\\mempalace-3.4.0\\\" && git checkout -b main origin/main 2>&1\",\"description\":\"Create local main branch tracking remote\"}",
+  "error": "Exit code 1\nerror: The following untracked working tree files would be overwritten by checkout:\n\t.agents/plugins/marketplace.json\n\t.claude-plugin/.mcp.json\n\t.claude-plugin/README.md\n\t.claude-plugin/commands/help.md\n\t.claude-plugin/commands/init.md\n\t.claude-plugin/commands/mine.md\n\t.claude-plugin/commands/search.md\n\t.claude-plugin/commands/status.md\n\t.claude-plugin/hooks/mempal-precompact-hook.sh\n\t.claude-plugin/hooks/mempal-stop-hook.sh\n\t.claude-plugin/marketplace.json\n\t.claude-plugin/plugin.jso...",
+  "timestamp": "2026-06-09T11:27:26.359Z",
+  "retry_count": 2
+}

@@ -1,0 +1,7 @@
+{
+  "tool_name": "Bash",
+  "tool_input_preview": "{\"command\":\"Test-Path \\\"D:\\\\xiaoxiao\\\\20026\\\\mempalace-3.4.0\\\\chroma_data\\\" ; Test-Path \\\"D:\\\\xiaoxiao\\\\20026\\\\mempalace-3.4.0\\\\.chroma\\\" ; Get-ChildItem \\\"D:\\\\xiaoxiao\\\\20026\\\\mempalace-3.4.0\\\" -Name...",
+  "error": "Exit code 127\n/usr/bin/bash: line 1: Test-Path: command not found\n/usr/bin/bash: line 1: Test-Path: command not found\n/usr/bin/bash: line 1: Get-ChildItem: command not found\n/usr/bin/bash: line 1: Get-ChildItem: command not found",
+  "timestamp": "2026-06-09T10:58:37.655Z",
+  "retry_count": 5
+}

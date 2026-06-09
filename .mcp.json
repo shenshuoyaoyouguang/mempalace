@@ -1,0 +1,9 @@
+{
+  "mcpServers": {
+    "mempalace": {
+      "command": "uv",
+      "args": ["run", "mempalace-mcp"],
+      "cwd": "D:\\xiaoxiao\\20026\\mempalace-3.4.0"
+    }
+  }
+}
